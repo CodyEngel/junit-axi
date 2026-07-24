@@ -1,0 +1,293 @@
+> Task :clean
+> Task :compileJava NO-SOURCE
+> Task :processResources NO-SOURCE
+> Task :classes UP-TO-DATE
+> Task :compileTestJava
+> Task :processTestResources NO-SOURCE
+> Task :testClasses
+
+> Task :test FAILED
+
+AssertionDiffTest > comparesLists() FAILED
+    org.opentest4j.AssertionFailedError:
+    Expecting actual:
+      ["alpha", "bravo", "delta", "echo"]
+    to contain exactly (and in same order):
+      ["alpha", "bravo", "charlie", "delta"]
+    but some elements were not found:
+      ["charlie"]
+    and others were not expected:
+      ["echo"]
+        at app//com.example.AssertionDiffTest.comparesLists(AssertionDiffTest.java:23)
+
+AssertionDiffTest > comparesMaps() FAILED
+    java.lang.AssertionError:
+    Expecting map:
+      {"apples"=3, "pears"=7, "plums"=2}
+    to contain only:
+      ["apples"=3, "pears"=9, "quinces"=1]
+    map entries not found:
+      ["pears"=9, "quinces"=1]
+    and map entries not expected:
+      ["pears"=7, "plums"=2]
+        at com.example.AssertionDiffTest.comparesMaps(AssertionDiffTest.java:41)
+
+AssertionDiffTest > comparesMultiLineStrings() FAILED
+    org.opentest4j.AssertionFailedError:
+    expected:
+      "line one
+      line two
+      line three
+      line four"
+     but was:
+      "line one
+      line two
+      line three modified
+      line four"
+        at app//com.example.AssertionDiffTest.comparesMultiLineStrings(AssertionDiffTest.java:48)
+
+AssertionDiffTest > comparesObjectsFieldByField() FAILED
+    java.lang.AssertionError:
+    Expecting actual:
+      Order[id=A-1001, quantity=3, total=29.97, status=PENDING]
+    to be equal to:
+      Order[id=A-1001, quantity=3, total=34.47, status=APPROVED]
+    when recursively comparing field by field, but found the following 2 differences:
+
+    field/property 'status' differ:
+    - actual value  : "PENDING"
+    - expected value: "APPROVED"
+    Compared objects have java types and were thus compared with equals method
+
+    field/property 'total' differ:
+    - actual value  : 29.97
+    - expected value: 34.47
+
+    The recursive comparison was performed with this configuration:
+    - no equals methods were used in the comparison EXCEPT for java JDK types since introspecting JDK types is forbidden in java 17+ (use withEqualsForType to register a specific way to compare a JDK type if you need it)
+    - these types were compared with the following comparators:
+      - java.lang.Double -> DoubleComparator[precision=1.0E-15]
+      - java.lang.Float -> FloatComparator[precision=1.0E-6]
+      - java.nio.file.Path -> lexicographic comparator (Path natural order)
+    - actual and expected objects and their fields were compared field by field recursively even if they were not of the same type, this allows for example to compare a Person to a PersonDto (call strictTypeChecking(true) to change that behavior).
+    - the introspection strategy used was: DefaultRecursiveComparisonIntrospectionStrategy
+        at com.example.AssertionDiffTest.comparesObjectsFieldByField(AssertionDiffTest.java:55)
+
+CalculatorTest > addsTwoNumbers() PASSED
+
+CalculatorTest > appliesTax() FAILED
+    org.opentest4j.AssertionFailedError: tax calculation drifted ==> expected: <10.8> but was: <9.9>
+        at app//org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:1073)
+        at app//com.example.CalculatorTest.appliesTax(CalculatorTest.java:20)
+
+CausalChainTest > failsThroughLambdaFrames() FAILED
+    java.lang.NumberFormatException: For input string: "not-a-number"
+        at java.base/java.lang.NumberFormatException.forInputString(NumberFormatException.java:67)
+        at java.base/java.lang.Integer.parseInt(Integer.java:668)
+        at java.base/java.lang.Integer.parseInt(Integer.java:786)
+        at java.base/java.util.stream.ReferencePipeline$3$1.accept(ReferencePipeline.java:197)
+        at java.base/java.util.AbstractList$RandomAccessSpliterator.forEachRemaining(AbstractList.java:720)
+        at java.base/java.util.stream.AbstractPipeline.copyInto(AbstractPipeline.java:509)
+        at java.base/java.util.stream.AbstractPipeline.wrapAndCopyInto(AbstractPipeline.java:499)
+        at java.base/java.util.stream.AbstractPipeline.evaluate(AbstractPipeline.java:575)
+        at java.base/java.util.stream.AbstractPipeline.evaluateToArrayNode(AbstractPipeline.java:260)
+        at java.base/java.util.stream.ReferencePipeline.toArray(ReferencePipeline.java:616)
+        at java.base/java.util.stream.ReferencePipeline.toArray(ReferencePipeline.java:622)
+        at java.base/java.util.stream.ReferencePipeline.toList(ReferencePipeline.java:627)
+        at com.example.CausalChainTest.failsThroughLambdaFrames(CausalChainTest.java:23)
+
+CausalChainTest > failsWithNestedCauses() FAILED
+    java.lang.IllegalStateException: could not load order book for session 2026-07-23
+        at com.example.CausalChainTest.loadOrderBook(CausalChainTest.java:30)
+        at com.example.CausalChainTest.failsWithNestedCauses(CausalChainTest.java:17)
+
+        Caused by:
+        java.io.IOException: settlement file corrupt at row 1
+            at com.example.CausalChainTest.readSettlementFile(CausalChainTest.java:38)
+            at com.example.CausalChainTest.loadOrderBook(CausalChainTest.java:28)
+            ... 1 more
+
+            Caused by:
+            java.lang.NumberFormatException: For input string: "not-a-number"
+                at java.base/jdk.internal.math.FloatingDecimal.readJavaFormatString(FloatingDecimal.java:2054)
+                at java.base/jdk.internal.math.FloatingDecimal.parseDouble(FloatingDecimal.java:110)
+                at java.base/java.lang.Double.parseDouble(Double.java:651)
+                at com.example.CausalChainTest.parseSettlementRow(CausalChainTest.java:44)
+                at com.example.CausalChainTest.readSettlementFile(CausalChainTest.java:36)
+                ... 2 more
+
+LifecycleTest > errors rather than asserting FAILED
+    java.lang.NullPointerException: Cannot invoke "String.trim()" because "config" is null
+        at com.example.LifecycleTest.throwsRatherThanAsserting(LifecycleTest.java:30)
+
+LifecycleTest > skippedForAKnownReason() SKIPPED
+
+LifecycleTest > writesALotOfStandardOutput() STANDARD_OUT
+    [pricing] evaluating rule 1 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 2 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 3 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 4 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 5 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 6 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 7 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 8 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 9 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 10 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 11 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 12 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 13 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 14 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 15 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 16 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 17 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 18 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 19 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 20 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 21 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 22 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 23 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 24 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 25 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 26 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 27 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 28 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 29 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 30 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 31 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 32 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 33 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 34 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 35 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 36 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 37 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 38 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 39 of 40 for tenant acme-corp (region=us-west-2)
+    [pricing] evaluating rule 40 of 40 for tenant acme-corp (region=us-west-2)
+
+LifecycleTest > writesALotOfStandardOutput() STANDARD_ERROR
+    [pricing] WARN rule 37 fell through to the default branch
+
+LifecycleTest > when the cart is empty > rejectsCheckout() FAILED
+    org.opentest4j.AssertionFailedError: empty cart should not check out ==> expected: <REJECTED> but was: <ACCEPTED>
+        at app//org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:1210)
+        at app//com.example.LifecycleTest$WhenCartIsEmpty.rejectsCheckout(LifecycleTest.java:56)
+
+LifecycleTest > when the cart is empty > totalsToZero() PASSED
+
+LifecycleTest > writesALotOfStandardOutput() FAILED
+    org.opentest4j.AssertionFailedError: rule count drifted ==> expected: <40> but was: <39>
+        at app//org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:601)
+        at app//com.example.LifecycleTest.writesALotOfStandardOutput(LifecycleTest.java:42)
+
+SharedCauseTest > everyRowHitsTheSameBug(int) > row 1 FAILED
+    java.lang.NullPointerException: Cannot invoke "java.util.Map.getOrDefault(Object, Object)" because "this.balances" is null
+        at com.example.SharedCauseTest$Ledger.balanceFor(SharedCauseTest.java:32)
+        at com.example.SharedCauseTest.everyRowHitsTheSameBug(SharedCauseTest.java:24)
+
+SharedCauseTest > everyRowHitsTheSameBug(int) > row 10 FAILED
+    java.lang.NullPointerException: Cannot invoke "java.util.Map.getOrDefault(Object, Object)" because "this.balances" is null
+        at com.example.SharedCauseTest$Ledger.balanceFor(SharedCauseTest.java:32)
+        at com.example.SharedCauseTest.everyRowHitsTheSameBug(SharedCauseTest.java:24)
+
+SharedCauseTest > everyRowHitsTheSameBug(int) > row 11 FAILED
+    java.lang.NullPointerException: Cannot invoke "java.util.Map.getOrDefault(Object, Object)" because "this.balances" is null
+        at com.example.SharedCauseTest$Ledger.balanceFor(SharedCauseTest.java:32)
+        at com.example.SharedCauseTest.everyRowHitsTheSameBug(SharedCauseTest.java:24)
+
+SharedCauseTest > everyRowHitsTheSameBug(int) > row 12 FAILED
+    java.lang.NullPointerException: Cannot invoke "java.util.Map.getOrDefault(Object, Object)" because "this.balances" is null
+        at com.example.SharedCauseTest$Ledger.balanceFor(SharedCauseTest.java:32)
+        at com.example.SharedCauseTest.everyRowHitsTheSameBug(SharedCauseTest.java:24)
+
+SharedCauseTest > everyRowHitsTheSameBug(int) > row 13 FAILED
+    java.lang.NullPointerException: Cannot invoke "java.util.Map.getOrDefault(Object, Object)" because "this.balances" is null
+        at com.example.SharedCauseTest$Ledger.balanceFor(SharedCauseTest.java:32)
+        at com.example.SharedCauseTest.everyRowHitsTheSameBug(SharedCauseTest.java:24)
+
+SharedCauseTest > everyRowHitsTheSameBug(int) > row 14 FAILED
+    java.lang.NullPointerException: Cannot invoke "java.util.Map.getOrDefault(Object, Object)" because "this.balances" is null
+        at com.example.SharedCauseTest$Ledger.balanceFor(SharedCauseTest.java:32)
+        at com.example.SharedCauseTest.everyRowHitsTheSameBug(SharedCauseTest.java:24)
+
+SharedCauseTest > everyRowHitsTheSameBug(int) > row 15 FAILED
+    java.lang.NullPointerException: Cannot invoke "java.util.Map.getOrDefault(Object, Object)" because "this.balances" is null
+        at com.example.SharedCauseTest$Ledger.balanceFor(SharedCauseTest.java:32)
+        at com.example.SharedCauseTest.everyRowHitsTheSameBug(SharedCauseTest.java:24)
+
+SharedCauseTest > everyRowHitsTheSameBug(int) > row 16 FAILED
+    java.lang.NullPointerException: Cannot invoke "java.util.Map.getOrDefault(Object, Object)" because "this.balances" is null
+        at com.example.SharedCauseTest$Ledger.balanceFor(SharedCauseTest.java:32)
+        at com.example.SharedCauseTest.everyRowHitsTheSameBug(SharedCauseTest.java:24)
+
+SharedCauseTest > everyRowHitsTheSameBug(int) > row 17 FAILED
+    java.lang.NullPointerException: Cannot invoke "java.util.Map.getOrDefault(Object, Object)" because "this.balances" is null
+        at com.example.SharedCauseTest$Ledger.balanceFor(SharedCauseTest.java:32)
+        at com.example.SharedCauseTest.everyRowHitsTheSameBug(SharedCauseTest.java:24)
+
+SharedCauseTest > everyRowHitsTheSameBug(int) > row 18 FAILED
+    java.lang.NullPointerException: Cannot invoke "java.util.Map.getOrDefault(Object, Object)" because "this.balances" is null
+        at com.example.SharedCauseTest$Ledger.balanceFor(SharedCauseTest.java:32)
+        at com.example.SharedCauseTest.everyRowHitsTheSameBug(SharedCauseTest.java:24)
+
+SharedCauseTest > everyRowHitsTheSameBug(int) > row 19 FAILED
+    java.lang.NullPointerException: Cannot invoke "java.util.Map.getOrDefault(Object, Object)" because "this.balances" is null
+        at com.example.SharedCauseTest$Ledger.balanceFor(SharedCauseTest.java:32)
+        at com.example.SharedCauseTest.everyRowHitsTheSameBug(SharedCauseTest.java:24)
+
+SharedCauseTest > everyRowHitsTheSameBug(int) > row 2 FAILED
+    java.lang.NullPointerException: Cannot invoke "java.util.Map.getOrDefault(Object, Object)" because "this.balances" is null
+        at com.example.SharedCauseTest$Ledger.balanceFor(SharedCauseTest.java:32)
+        at com.example.SharedCauseTest.everyRowHitsTheSameBug(SharedCauseTest.java:24)
+
+SharedCauseTest > everyRowHitsTheSameBug(int) > row 20 FAILED
+    java.lang.NullPointerException: Cannot invoke "java.util.Map.getOrDefault(Object, Object)" because "this.balances" is null
+        at com.example.SharedCauseTest$Ledger.balanceFor(SharedCauseTest.java:32)
+        at com.example.SharedCauseTest.everyRowHitsTheSameBug(SharedCauseTest.java:24)
+
+SharedCauseTest > everyRowHitsTheSameBug(int) > row 3 FAILED
+    java.lang.NullPointerException: Cannot invoke "java.util.Map.getOrDefault(Object, Object)" because "this.balances" is null
+        at com.example.SharedCauseTest$Ledger.balanceFor(SharedCauseTest.java:32)
+        at com.example.SharedCauseTest.everyRowHitsTheSameBug(SharedCauseTest.java:24)
+
+SharedCauseTest > everyRowHitsTheSameBug(int) > row 4 FAILED
+    java.lang.NullPointerException: Cannot invoke "java.util.Map.getOrDefault(Object, Object)" because "this.balances" is null
+        at com.example.SharedCauseTest$Ledger.balanceFor(SharedCauseTest.java:32)
+        at com.example.SharedCauseTest.everyRowHitsTheSameBug(SharedCauseTest.java:24)
+
+SharedCauseTest > everyRowHitsTheSameBug(int) > row 5 FAILED
+    java.lang.NullPointerException: Cannot invoke "java.util.Map.getOrDefault(Object, Object)" because "this.balances" is null
+        at com.example.SharedCauseTest$Ledger.balanceFor(SharedCauseTest.java:32)
+        at com.example.SharedCauseTest.everyRowHitsTheSameBug(SharedCauseTest.java:24)
+
+SharedCauseTest > everyRowHitsTheSameBug(int) > row 6 FAILED
+    java.lang.NullPointerException: Cannot invoke "java.util.Map.getOrDefault(Object, Object)" because "this.balances" is null
+        at com.example.SharedCauseTest$Ledger.balanceFor(SharedCauseTest.java:32)
+        at com.example.SharedCauseTest.everyRowHitsTheSameBug(SharedCauseTest.java:24)
+
+SharedCauseTest > everyRowHitsTheSameBug(int) > row 7 FAILED
+    java.lang.NullPointerException: Cannot invoke "java.util.Map.getOrDefault(Object, Object)" because "this.balances" is null
+        at com.example.SharedCauseTest$Ledger.balanceFor(SharedCauseTest.java:32)
+        at com.example.SharedCauseTest.everyRowHitsTheSameBug(SharedCauseTest.java:24)
+
+SharedCauseTest > everyRowHitsTheSameBug(int) > row 8 FAILED
+    java.lang.NullPointerException: Cannot invoke "java.util.Map.getOrDefault(Object, Object)" because "this.balances" is null
+        at com.example.SharedCauseTest$Ledger.balanceFor(SharedCauseTest.java:32)
+        at com.example.SharedCauseTest.everyRowHitsTheSameBug(SharedCauseTest.java:24)
+
+SharedCauseTest > everyRowHitsTheSameBug(int) > row 9 FAILED
+    java.lang.NullPointerException: Cannot invoke "java.util.Map.getOrDefault(Object, Object)" because "this.balances" is null
+        at com.example.SharedCauseTest$Ledger.balanceFor(SharedCauseTest.java:32)
+        at com.example.SharedCauseTest.everyRowHitsTheSameBug(SharedCauseTest.java:24)
+
+33 tests completed, 30 failed, 1 skipped
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':test'.
+> There were failing tests. See the report at: file://<fixture>/build/reports/tests/test/index.html
+
+* Try:
+
+BUILD FAILED in <duration>
+<actionable-tasks>
