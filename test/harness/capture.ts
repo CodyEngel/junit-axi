@@ -67,6 +67,11 @@ export interface TokenReport {
    * This is the regression guard: it moves only when real content changes.
    */
   stable: { chars: number; tokens: number };
+  /**
+   * M1 fills this in. Count it the SAME way as `raw` — ANSI-stripped only, never
+   * normalized — or `ratio` compares a pre-scrub denominator against a post-scrub
+   * numerator and quietly overstates the win.
+   */
   compressed: { chars: number; tokens: number } | null;
   /**
    * compressed / raw, once M1 provides a compressed side. Lower is better.

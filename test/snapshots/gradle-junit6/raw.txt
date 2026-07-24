@@ -81,18 +81,18 @@ CalculatorTest > appliesTax() FAILED
 
 CausalChainTest > failsThroughLambdaFrames() FAILED
     java.lang.NumberFormatException: For input string: "not-a-number"
-        at java.base/java.lang.NumberFormatException.forInputString(NumberFormatException.java:67)
-        at java.base/java.lang.Integer.parseInt(Integer.java:668)
-        at java.base/java.lang.Integer.parseInt(Integer.java:786)
-        at java.base/java.util.stream.ReferencePipeline$3$1.accept(ReferencePipeline.java:197)
-        at java.base/java.util.AbstractList$RandomAccessSpliterator.forEachRemaining(AbstractList.java:720)
-        at java.base/java.util.stream.AbstractPipeline.copyInto(AbstractPipeline.java:509)
-        at java.base/java.util.stream.AbstractPipeline.wrapAndCopyInto(AbstractPipeline.java:499)
-        at java.base/java.util.stream.AbstractPipeline.evaluate(AbstractPipeline.java:575)
-        at java.base/java.util.stream.AbstractPipeline.evaluateToArrayNode(AbstractPipeline.java:260)
-        at java.base/java.util.stream.ReferencePipeline.toArray(ReferencePipeline.java:616)
-        at java.base/java.util.stream.ReferencePipeline.toArray(ReferencePipeline.java:622)
-        at java.base/java.util.stream.ReferencePipeline.toList(ReferencePipeline.java:627)
+        at java.base/java.lang.NumberFormatException.forInputString(NumberFormatException.java:<line>)
+        at java.base/java.lang.Integer.parseInt(Integer.java:<line>)
+        at java.base/java.lang.Integer.parseInt(Integer.java:<line>)
+        at java.base/java.util.stream.ReferencePipeline$3$1.accept(ReferencePipeline.java:<line>)
+        at java.base/java.util.AbstractList$RandomAccessSpliterator.forEachRemaining(AbstractList.java:<line>)
+        at java.base/java.util.stream.AbstractPipeline.copyInto(AbstractPipeline.java:<line>)
+        at java.base/java.util.stream.AbstractPipeline.wrapAndCopyInto(AbstractPipeline.java:<line>)
+        at java.base/java.util.stream.AbstractPipeline.evaluate(AbstractPipeline.java:<line>)
+        at java.base/java.util.stream.AbstractPipeline.evaluateToArrayNode(AbstractPipeline.java:<line>)
+        at java.base/java.util.stream.ReferencePipeline.toArray(ReferencePipeline.java:<line>)
+        at java.base/java.util.stream.ReferencePipeline.toArray(ReferencePipeline.java:<line>)
+        at java.base/java.util.stream.ReferencePipeline.toList(ReferencePipeline.java:<line>)
         at com.example.CausalChainTest.failsThroughLambdaFrames(CausalChainTest.java:23)
 
 CausalChainTest > failsWithNestedCauses() FAILED
@@ -108,9 +108,9 @@ CausalChainTest > failsWithNestedCauses() FAILED
 
             Caused by:
             java.lang.NumberFormatException: For input string: "not-a-number"
-                at java.base/jdk.internal.math.FloatingDecimal.readJavaFormatString(FloatingDecimal.java:2054)
-                at java.base/jdk.internal.math.FloatingDecimal.parseDouble(FloatingDecimal.java:110)
-                at java.base/java.lang.Double.parseDouble(Double.java:651)
+                at java.base/jdk.internal.math.FloatingDecimal.readJavaFormatString(FloatingDecimal.java:<line>)
+                at java.base/jdk.internal.math.FloatingDecimal.parseDouble(FloatingDecimal.java:<line>)
+                at java.base/java.lang.Double.parseDouble(Double.java:<line>)
                 at com.example.CausalChainTest.parseSettlementRow(CausalChainTest.java:44)
                 at com.example.CausalChainTest.readSettlementFile(CausalChainTest.java:36)
                 ... 2 more

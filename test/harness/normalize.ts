@@ -65,6 +65,16 @@ function dropWelcomeBlock(lines: string[]): string[] {
   return [...lines.slice(0, start), ...lines.slice(end + 1)];
 }
 
+/**
+ * A stack frame owned by the JDK rather than the project or a pinned dependency.
+ *
+ * Matches `at java.base/java.lang.Integer.parseInt(Integer.java:668)` and the
+ * module-less form, but deliberately NOT `at app//com.example.Foo.bar(Foo.java:20)`
+ * or `at app//org.junit...` — those line numbers are stable and worth diffing.
+ */
+const JDK_STACK_FRAME =
+  /^(\s*at\s+(?:[\w.@$-]+\/{1,2})?(?:java|javax|jdk|sun)\.[^(]*\([^:()]*):\d+(\))\s*$/gm;
+
 const TASK_LINE = /^> Task (:\S+)(?:\s+(.*))?$/;
 
 /**
@@ -229,6 +239,14 @@ export function normalize(input: string, opts: NormalizeOptions = {}): string {
   text = text.replace(/^\d+ actionable tasks?:.*$/gm, "<actionable-tasks>");
   // Gradle's own PID / port chatter, when it leaks.
   text = text.replace(/\bDaemon pid=\d+/g, "Daemon pid=<pid>");
+
+  // Line numbers inside JDK frames shift between JDK patch releases as fixes are
+  // backported, and dev and CI do not run the same patch (17.0.18 vs 17.0.19+10 at
+  // the time of writing — that pair happens to agree, which is luck, not design).
+  // Scrub only JDK-owned frames: org.junit and org.assertj versions are pinned by
+  // the fixture, so their line numbers are stable and meaningful, and project frames
+  // are the whole point of the trace.
+  text = text.replace(JDK_STACK_FRAME, "$1:<line>$2");
 
   // Trailing whitespace and blank-line runs, which vary with what was dropped above.
   text = text

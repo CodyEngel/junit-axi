@@ -132,6 +132,33 @@ describe("normalize", () => {
     expect(normalize(input)).toBe("> Task :test\n");
   });
 
+  it("scrubs line numbers in JDK frames but not project or pinned-dependency frames", () => {
+    // JDK patch releases shift these as fixes are backported, and dev and CI do not
+    // run the same patch. org.junit / org.assertj are pinned by the fixture, so
+    // their line numbers are stable and worth diffing.
+    const input = [
+      "    java.lang.NumberFormatException: For input string: \"not-a-number\"",
+      "        at java.base/java.lang.NumberFormatException.forInputString(NumberFormatException.java:67)",
+      "        at java.base/java.lang.Integer.parseInt(Integer.java:668)",
+      "        at app//org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:1073)",
+      "        at app//com.example.CalculatorTest.appliesTax(CalculatorTest.java:20)",
+      "        at com.example.SharedCauseTest$Ledger.balanceFor(SharedCauseTest.java:32)",
+    ].join("\n");
+
+    // normalize() trims the document, so the first line loses its indent here.
+    expect(normalize(input)).toBe(
+      [
+        "java.lang.NumberFormatException: For input string: \"not-a-number\"",
+        "        at java.base/java.lang.NumberFormatException.forInputString(NumberFormatException.java:<line>)",
+        "        at java.base/java.lang.Integer.parseInt(Integer.java:<line>)",
+        "        at app//org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:1073)",
+        "        at app//com.example.CalculatorTest.appliesTax(CalculatorTest.java:20)",
+        "        at com.example.SharedCauseTest$Ledger.balanceFor(SharedCauseTest.java:32)",
+        "",
+      ].join("\n"),
+    );
+  });
+
   it("is idempotent", () => {
     const input = [
       "> Task :test FAILED",
