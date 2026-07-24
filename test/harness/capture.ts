@@ -14,7 +14,7 @@
 
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, open, readFile, unlink, writeFile } from "node:fs/promises";
+import { mkdir, open, readFile, rm, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -86,6 +86,13 @@ export async function captureFixture(fixture: string): Promise<Capture> {
         `generate one with: cd ${cwd} && gradle wrapper --gradle-version <version>`,
     );
   }
+
+  // Start from a cold build directory every time. A warm one makes `:clean` report
+  // plain `> Task :clean` while a fresh checkout reports `UP-TO-DATE`, which is a
+  // real diff between a dev machine and CI. Removing it first makes the starting
+  // state identical everywhere — and is the same instinct as §3.1: never let
+  // leftover output from a previous run influence what we report.
+  await rm(join(cwd, "build"), { recursive: true, force: true });
 
   const { combined, exitCode } = await run(wrapper, [...GRADLE_ARGS], cwd);
 

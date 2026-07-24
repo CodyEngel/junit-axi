@@ -1,12 +1,11 @@
-> Task :clean
-> Task :compileJava NO-SOURCE
-> Task :processResources NO-SOURCE
 > Task :classes UP-TO-DATE
+> Task :clean UP-TO-DATE
+> Task :compileJava NO-SOURCE
 > Task :compileTestJava
+> Task :processResources NO-SOURCE
 > Task :processTestResources NO-SOURCE
-> Task :testClasses
-
 > Task :test FAILED
+> Task :testClasses
 
 AssertionDiffTest > comparesLists() FAILED
     org.opentest4j.AssertionFailedError:

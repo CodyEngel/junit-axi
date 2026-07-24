@@ -98,6 +98,40 @@ describe("normalize", () => {
     );
   });
 
+  it("dedupes a task that appears both bare and with a status", () => {
+    // Observed on CI but not locally: Gradle emits `> Task :test` when the task
+    // starts and `> Task :test FAILED` at completion, and where the second lands
+    // varies. The status must win regardless of position.
+    const input = [
+      "> Task :test",
+      "SomeTest > works() PASSED",
+      "1 test completed, 1 failed",
+      "> Task :test FAILED",
+    ].join("\n");
+
+    expect(normalize(input)).toBe(
+      ["> Task :test FAILED", "SomeTest > works() PASSED", "", "1 test completed, 1 failed", ""].join(
+        "\n",
+      ),
+    );
+  });
+
+  it("sorts task lines and collapses them to the first task position", () => {
+    const input = ["> Task :testClasses", "> Task :clean UP-TO-DATE", "> Task :compileJava NO-SOURCE"].join(
+      "\n",
+    );
+    expect(normalize(input)).toBe(
+      ["> Task :clean UP-TO-DATE", "> Task :compileJava NO-SOURCE", "> Task :testClasses", ""].join("\n"),
+    );
+  });
+
+  it("drops cold-wrapper distribution chatter", () => {
+    const input = ["Fetching distribution.", "Unzipping /home/x/.gradle/wrapper/dists/g.zip", "> Task :test"].join(
+      "\n",
+    );
+    expect(normalize(input)).toBe("> Task :test\n");
+  });
+
   it("is idempotent", () => {
     const input = [
       "> Task :test FAILED",

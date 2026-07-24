@@ -30,6 +30,9 @@ const ANSI_PATTERN = new RegExp(
 const DROP_LINE_PATTERNS: RegExp[] = [
   // Distribution download on a cold wrapper cache (CI always, dev never).
   /^Downloading https:\/\/services\.gradle\.org\/distributions\//,
+  /^Fetching distribution\b/,
+  /^Unzipping /,
+  /^Set executable permissions for: /,
   /^[.]*\d{1,3}%[.]*$/,
   /^(?:[.]+\d{1,3}%)+[.]*$/,
   // Daemon lifecycle chatter.
@@ -60,6 +63,56 @@ function dropWelcomeBlock(lines: string[]): string[] {
   );
   if (end === -1) return lines;
   return [...lines.slice(0, start), ...lines.slice(end + 1)];
+}
+
+const TASK_LINE = /^> Task (:\S+)(?:\s+(.*))?$/;
+
+/**
+ * Canonicalize Gradle's `> Task :name STATUS` lines into one sorted, deduplicated
+ * block at the position of the first task line.
+ *
+ * Gradle is not consistent about these across environments. Observed between a
+ * macOS dev machine and an ubuntu CI runner on the same fixture:
+ *
+ *   - a cold checkout has no build dir, so `:clean` reports UP-TO-DATE where a warm
+ *     one reports plain `:clean`
+ *   - the same task can appear twice — a bare `> Task :test` when it starts and a
+ *     `> Task :test FAILED` at completion — and where the second lands relative to
+ *     the test output varies
+ *
+ * Position and duplication are therefore not stable, but *which tasks ran with what
+ * status* is. Canonicalizing keeps the meaningful part and drops the churn. The
+ * cost is execution order, which these snapshots do not exist to guard; the token
+ * count is unaffected either way, since it is taken pre-scrub.
+ */
+function canonicalizeTaskLines(lines: string[]): string[] {
+  const status = new Map<string, string>();
+  let firstIndex = -1;
+
+  for (const [i, line] of lines.entries()) {
+    const m = TASK_LINE.exec(line);
+    if (!m) continue;
+    if (firstIndex === -1) firstIndex = i;
+    const [, task, suffix] = m;
+    // A later status suffix wins over a bare header; a bare header never clears one.
+    const existing = status.get(task!);
+    if (suffix?.trim()) status.set(task!, suffix.trim());
+    else if (existing === undefined) status.set(task!, "");
+  }
+
+  if (firstIndex === -1) return lines;
+
+  const block = [...status.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([task, suffix]) => (suffix ? `> Task ${task} ${suffix}` : `> Task ${task}`));
+
+  const out: string[] = [];
+  for (const [i, line] of lines.entries()) {
+    if (i === firstIndex) out.push(...block);
+    if (TASK_LINE.test(line)) continue;
+    out.push(line);
+  }
+  return out;
 }
 
 const TEST_EVENT = /^\s*\S.*\s>\s.*\s(?:PASSED|FAILED|SKIPPED)\s*$/;
@@ -164,6 +217,7 @@ export function normalize(input: string, opts: NormalizeOptions = {}): string {
   let lines = text.split("\n");
   lines = dropWelcomeBlock(lines);
   lines = lines.filter((l) => !DROP_LINE_PATTERNS.some((p) => p.test(l)));
+  lines = canonicalizeTaskLines(lines);
   lines = sortTestEventBlocks(lines);
 
   text = lines.join("\n");
