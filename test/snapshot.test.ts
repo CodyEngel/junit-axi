@@ -53,12 +53,21 @@ describe.each(FIXTURES)("fixture %s", (fixture) => {
 
       expect(capture.normalized).toBe(committed!.raw);
 
-      // Token counts move with real content changes, not with noise. Compare the
-      // character count exactly: if raw.txt matched but chars did not, something
-      // the normalizer scrubs has changed size, which is worth surfacing.
+      // Assert the post-scrub count, not the pre-scrub one. `raw` is the honest
+      // cost an agent pays, but it varies by machine — a cold CI runner pays for a
+      // distribution banner a warm dev machine does not, and checkout paths differ
+      // in length. `stable` is environment-independent and moves only when real
+      // content moves, which is what a regression guard wants.
       const fresh = buildTokenReport(fixture, capture);
-      expect(fresh.raw.chars).toBe(committed!.tokens.raw.chars);
-      expect(fresh.raw.tokens).toBe(committed!.tokens.raw.tokens);
+      expect(fresh.stable.chars).toBe(committed!.tokens.stable.chars);
+      expect(fresh.stable.tokens).toBe(committed!.tokens.stable.tokens);
+
+      // `raw` is still worth a sanity bound: it should stay in the same order of
+      // magnitude. A 2x swing means something structural changed that the
+      // normalizer happened to scrub, which deserves a look even though the exact
+      // figure is not reproducible.
+      expect(fresh.raw.chars).toBeGreaterThan(committed!.tokens.raw.chars * 0.5);
+      expect(fresh.raw.chars).toBeLessThan(committed!.tokens.raw.chars * 2);
     },
     GRADLE_TIMEOUT_MS,
   );

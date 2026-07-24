@@ -55,9 +55,26 @@ export interface TokenReport {
   fixture: string;
   method: "chars/4";
   note: string;
+  /**
+   * Pre-scrub (ANSI-stripped only) — the honest cost of the status quo on the
+   * machine that captured it. ENVIRONMENT-DEPENDENT and deliberately not asserted:
+   * a cold CI runner really does pay for the distribution banner, and its checkout
+   * path is a different length from a dev machine's. Informational.
+   */
   raw: { chars: number; tokens: number };
+  /**
+   * Post-scrub — environment-independent, and therefore the number CI asserts.
+   * This is the regression guard: it moves only when real content changes.
+   */
+  stable: { chars: number; tokens: number };
   compressed: { chars: number; tokens: number } | null;
-  /** compressed / raw, once there is a compressed side. Lower is better. */
+  /**
+   * compressed / raw, once M1 provides a compressed side. Lower is better.
+   *
+   * Note the ratio is immune to the environment dependence above: both sides come
+   * from the same capture on the same machine, so whatever the runner adds to the
+   * raw side is present in the denominator of every comparison.
+   */
   ratio: number | null;
 }
 
@@ -150,14 +167,22 @@ async function run(
 }
 
 export function buildTokenReport(fixture: string, capture: Capture): TokenReport {
-  const chars = capture.ansiStripped.length;
   return {
     fixture,
     method: "chars/4",
     note:
-      "Counted pre-scrub (ANSI-stripped only) — an agent pays for the banners and " +
-      "absolute paths the normalizer removes. See docs/DESIGN.md §10.2.",
-    raw: { chars, tokens: countTokens(capture.ansiStripped) },
+      "`raw` is counted pre-scrub (ANSI-stripped only) because an agent pays for the " +
+      "banners and absolute paths the normalizer removes — but that makes it vary by " +
+      "machine, so CI asserts `stable` instead. The compressed/raw ratio is unaffected: " +
+      "both sides come from one capture. See docs/DESIGN.md §10.2.",
+    raw: {
+      chars: capture.ansiStripped.length,
+      tokens: countTokens(capture.ansiStripped),
+    },
+    stable: {
+      chars: capture.normalized.length,
+      tokens: countTokens(capture.normalized),
+    },
     compressed: null,
     ratio: null,
   };
