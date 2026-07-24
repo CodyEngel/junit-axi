@@ -419,6 +419,21 @@ An agent pays for the banners and the absolute paths. The value metric has to co
 which is what the metric is for. Revisit only if the absolute numbers ever get quoted publicly,
 where a real tokenizer would be worth its dependency.
 
+**Counting pre-scrub makes the raw number environment-dependent, so CI cannot assert it.** M0
+proved this the hard way: the same fixture measured 18,056 characters on a dev machine and 18,616
+on a cold CI runner, because the runner genuinely pays for a distribution-download banner and has a
+longer checkout path. Both numbers are correct. So `tokens.json` records two:
+
+| Field | Scrub | Purpose |
+| ----- | ----- | ------- |
+| `raw` | ANSI-stripped only | the honest cost of the status quo on the capturing machine — informational, not asserted |
+| `stable` | fully normalized | environment-independent, and therefore what CI asserts as the regression guard |
+
+The **ratio** — the actual value proposition — is immune to this: both sides of a comparison come
+from the same capture on the same machine, so whatever the environment adds appears in the
+denominator of every comparison. `raw` still gets a loose order-of-magnitude bound in CI, so a
+structural change the normalizer happens to scrub does not pass unnoticed.
+
 ### 10.3 The fixture catalog is deliberately adversarial
 
 The value is in the hard cases, not "one passing test and one failing test":

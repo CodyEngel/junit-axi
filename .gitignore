@@ -1,0 +1,9 @@
+node_modules/
+dist/
+
+# Gradle fixture build output. The fixture projects themselves are committed —
+# wrapper jar included, so CI needs no Gradle install — but their build products
+# are not. Note that stale build output is exactly the hazard docs/DESIGN.md §3.1
+# is about; the harness always runs `clean` rather than trusting this.
+test/fixtures/*/build/
+test/fixtures/*/.gradle/

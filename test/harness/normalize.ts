@@ -1,0 +1,271 @@
+/**
+ * Shared output normalizer — docs/DESIGN.md §10.2.
+ *
+ * Raw Gradle output is not deterministic: timings, absolute paths, daemon and
+ * distribution banners, and unstable test ordering all vary run to run. Snapshot
+ * diffs built on that would fail constantly, and a suite that cries wolf gets
+ * ignored. Everything here exists to make the diff mean something.
+ *
+ * Both sides of the dual snapshot pass through this same function — junit-axi's
+ * own output carries `ms` durations and needs the same treatment.
+ *
+ * IMPORTANT: token counts are NOT taken from normalized text. Scrubbing is deeply
+ * asymmetric — raw Gradle output is largely banners and absolute paths and loses a
+ * great deal here, while our TOON loses almost nothing — so counting post-scrub
+ * would understate the real win. See countTokens() and §10.2.
+ */
+
+// CSI-style escape sequences. --console=plain suppresses most of these, but Gradle
+// and the JVM still leak them in some environments. Built from char codes rather
+// than literal escapes so no raw control bytes end up in this source file.
+const ESC = String.fromCharCode(0x1b);
+const CSI_8BIT = String.fromCharCode(0x9b);
+const ANSI_PATTERN = new RegExp(
+  "[" + ESC + CSI_8BIT + "][[\\]()#;?]*" +
+    "(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-PR-TZcf-ntqry=><]",
+  "g",
+);
+
+/** Lines dropped wholesale: pure environment noise that varies by machine and run. */
+const DROP_LINE_PATTERNS: RegExp[] = [
+  // Distribution download on a cold wrapper cache (CI always, dev never).
+  /^Downloading https:\/\/services\.gradle\.org\/distributions\//,
+  /^Fetching distribution\b/,
+  /^Unzipping /,
+  /^Set executable permissions for: /,
+  /^[.]*\d{1,3}%[.]*$/,
+  /^(?:[.]+\d{1,3}%)+[.]*$/,
+  // Daemon lifecycle chatter.
+  /^To honour the JVM settings for this build/,
+  /^Daemon will be stopped at the end of the build/,
+  /^Starting a Gradle Daemon/,
+  /^The message received from the daemon indicates/,
+  // Advisory nags that come and go with Gradle versions and cache state.
+  /^Consider enabling configuration cache/,
+  /^Configuration cache entry (?:stored|reused|discarded)/,
+  /^See https:\/\/docs\.gradle\.org\/[^/]+\/userguide\/configuration_cache/,
+  /^Welcome to Gradle /,
+  /^For more details see https:\/\/docs\.gradle\.org\//,
+  /^> Run with --scan to get full insights/,
+  /^You can use '--warning-mode all'/,
+];
+
+/**
+ * The "Welcome to Gradle X!" banner prints a variable-length highlights block that
+ * only appears after a fresh distribution download. Drop from the banner through
+ * the release-notes URL that terminates it.
+ */
+function dropWelcomeBlock(lines: string[]): string[] {
+  const start = lines.findIndex((l) => /^Welcome to Gradle /.test(l));
+  if (start === -1) return lines;
+  const end = lines.findIndex(
+    (l, i) => i > start && /^For more details see https:\/\/docs\.gradle\.org\//.test(l),
+  );
+  if (end === -1) return lines;
+  return [...lines.slice(0, start), ...lines.slice(end + 1)];
+}
+
+/**
+ * A stack frame owned by the JDK rather than the project or a pinned dependency.
+ *
+ * Matches `at java.base/java.lang.Integer.parseInt(Integer.java:668)` and the
+ * module-less form, but deliberately NOT `at app//com.example.Foo.bar(Foo.java:20)`
+ * or `at app//org.junit...` — those line numbers are stable and worth diffing.
+ */
+const JDK_STACK_FRAME =
+  /^(\s*at\s+(?:[\w.@$-]+\/{1,2})?(?:java|javax|jdk|sun)\.[^(]*\([^:()]*):\d+(\))\s*$/gm;
+
+const TASK_LINE = /^> Task (:\S+)(?:\s+(.*))?$/;
+
+/**
+ * Canonicalize Gradle's `> Task :name STATUS` lines into one sorted, deduplicated
+ * block at the position of the first task line.
+ *
+ * Gradle is not consistent about these across environments. Observed between a
+ * macOS dev machine and an ubuntu CI runner on the same fixture:
+ *
+ *   - a cold checkout has no build dir, so `:clean` reports UP-TO-DATE where a warm
+ *     one reports plain `:clean`
+ *   - the same task can appear twice — a bare `> Task :test` when it starts and a
+ *     `> Task :test FAILED` at completion — and where the second lands relative to
+ *     the test output varies
+ *
+ * Position and duplication are therefore not stable, but *which tasks ran with what
+ * status* is. Canonicalizing keeps the meaningful part and drops the churn. The
+ * cost is execution order, which these snapshots do not exist to guard; the token
+ * count is unaffected either way, since it is taken pre-scrub.
+ */
+function canonicalizeTaskLines(lines: string[]): string[] {
+  const status = new Map<string, string>();
+  let firstIndex = -1;
+
+  for (const [i, line] of lines.entries()) {
+    const m = TASK_LINE.exec(line);
+    if (!m) continue;
+    if (firstIndex === -1) firstIndex = i;
+    const [, task, suffix] = m;
+    // A later status suffix wins over a bare header; a bare header never clears one.
+    const existing = status.get(task!);
+    if (suffix?.trim()) status.set(task!, suffix.trim());
+    else if (existing === undefined) status.set(task!, "");
+  }
+
+  if (firstIndex === -1) return lines;
+
+  const block = [...status.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([task, suffix]) => (suffix ? `> Task ${task} ${suffix}` : `> Task ${task}`));
+
+  const out: string[] = [];
+  for (const [i, line] of lines.entries()) {
+    if (i === firstIndex) out.push(...block);
+    if (TASK_LINE.test(line)) continue;
+    out.push(line);
+  }
+  return out;
+}
+
+const TEST_EVENT = /^\s*\S.*\s>\s.*\s(?:PASSED|FAILED|SKIPPED)\s*$/;
+
+function isTestEvent(line: string | undefined): boolean {
+  return line !== undefined && TEST_EVENT.test(line);
+}
+
+/**
+ * Gradle emits test events as tests complete, and completion order is not
+ * guaranteed — especially once the fixture grows past a couple of tests. Sort
+ * each contiguous run of test-event blocks by its header so ordering churn does
+ * not read as a real diff.
+ *
+ * A block is its header line plus any following indented or blank lines (the
+ * stack trace, assertion diff, and captured stdout hang off the header).
+ */
+function sortTestEventBlocks(lines: string[]): string[] {
+  const out: string[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    if (!isTestEvent(lines[i])) {
+      out.push(lines[i]!);
+      i++;
+      continue;
+    }
+
+    const blocks: { key: string; body: string[] }[] = [];
+    while (isTestEvent(lines[i])) {
+      const header = lines[i]!;
+      const body = [header];
+      i++;
+      while (
+        i < lines.length &&
+        !isTestEvent(lines[i]) &&
+        (lines[i]!.trim() === "" || /^\s/.test(lines[i]!))
+      ) {
+        body.push(lines[i]!);
+        i++;
+      }
+      while (body.length > 1 && body[body.length - 1]!.trim() === "") body.pop();
+      blocks.push({ key: header, body });
+    }
+
+    blocks.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+    for (const b of blocks) out.push(...b.body, "");
+  }
+
+  return out;
+}
+
+export function stripAnsi(input: string): string {
+  return input.replace(ANSI_PATTERN, "");
+}
+
+/**
+ * Replace a path root only where it is genuinely a path root — that is, at a
+ * segment boundary.
+ *
+ * Plain substring replacement is wrong: a root of `/repo` also matches inside
+ * `/reports`, silently corrupting unrelated paths in the snapshot. The lookahead
+ * requires the next character to end the segment.
+ */
+function replacePathRoot(text: string, root: string, placeholder: string): string {
+  const escaped = root.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return text.replace(
+    new RegExp(`${escaped}(?=/|$|[\\s"'\`,;:)\\]}>])`, "g"),
+    placeholder,
+  );
+}
+
+export interface NormalizeOptions {
+  /** Absolute paths under this directory collapse to <fixture>. */
+  fixtureDir?: string;
+  /** Absolute paths under this directory collapse to <repo>. */
+  repoRoot?: string;
+}
+
+/**
+ * Full scrub, for snapshot comparison only. Never feed the result to countTokens().
+ */
+export function normalize(input: string, opts: NormalizeOptions = {}): string {
+  let text = stripAnsi(input).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+
+  // Paths first, so file:// URLs are handled before anything else rewrites them.
+  // Longest root first: a fixture dir nested under the repo root must win.
+  const roots = [
+    opts.fixtureDir ? ([opts.fixtureDir, "<fixture>"] as const) : undefined,
+    opts.repoRoot ? ([opts.repoRoot, "<repo>"] as const) : undefined,
+  ]
+    .filter((r): r is readonly [string, string] => r !== undefined)
+    .sort((a, b) => b[0].length - a[0].length);
+
+  for (const [root, placeholder] of roots) {
+    text = replacePathRoot(text, root, placeholder);
+  }
+  // Home directory, for wrapper-cache and toolchain paths.
+  const home = process.env.HOME ?? process.env.USERPROFILE;
+  if (home) text = replacePathRoot(text, home, "<home>");
+
+  let lines = text.split("\n");
+  lines = dropWelcomeBlock(lines);
+  lines = lines.filter((l) => !DROP_LINE_PATTERNS.some((p) => p.test(l)));
+  lines = canonicalizeTaskLines(lines);
+  lines = sortTestEventBlocks(lines);
+
+  text = lines.join("\n");
+
+  // Durations: "BUILD FAILED in 11s", "in 1m 3s", "in 450ms".
+  text = text.replace(/\bin \d+m \d+s\b/g, "in <duration>");
+  text = text.replace(/\bin \d+(?:\.\d+)?m?s\b/g, "in <duration>");
+  // "3 actionable tasks: 2 executed, 1 up-to-date" — varies with cache state.
+  text = text.replace(/^\d+ actionable tasks?:.*$/gm, "<actionable-tasks>");
+  // Gradle's own PID / port chatter, when it leaks.
+  text = text.replace(/\bDaemon pid=\d+/g, "Daemon pid=<pid>");
+
+  // Line numbers inside JDK frames shift between JDK patch releases as fixes are
+  // backported, and dev and CI do not run the same patch (17.0.18 vs 17.0.19+10 at
+  // the time of writing — that pair happens to agree, which is luck, not design).
+  // Scrub only JDK-owned frames: org.junit and org.assertj versions are pinned by
+  // the fixture, so their line numbers are stable and meaningful, and project frames
+  // are the whole point of the trace.
+  text = text.replace(JDK_STACK_FRAME, "$1:<line>$2");
+
+  // Trailing whitespace and blank-line runs, which vary with what was dropped above.
+  text = text
+    .split("\n")
+    .map((l) => l.replace(/[ \t]+$/, ""))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  return text + "\n";
+}
+
+/**
+ * Token estimate: characters / 4 (docs/DESIGN.md §10.2, resolved).
+ *
+ * Dependency-free and adequate for the ratio and trend, which is what the metric
+ * is for. Feed this ANSI-stripped text ONLY — not normalized text — because an
+ * agent genuinely pays for the banners and absolute paths the normalizer removes.
+ */
+export function countTokens(ansiStrippedText: string): number {
+  return Math.ceil(ansiStrippedText.length / 4);
+}

@@ -1,0 +1,182 @@
+import { describe, expect, it } from "vitest";
+
+import { countTokens, normalize, stripAnsi } from "./harness/normalize.js";
+
+const ESC = String.fromCharCode(0x1b);
+
+describe("stripAnsi", () => {
+  it("removes CSI colour sequences", () => {
+    expect(stripAnsi(`${ESC}[31mFAILED${ESC}[0m`)).toBe("FAILED");
+  });
+
+  it("leaves plain text untouched", () => {
+    expect(stripAnsi("CalculatorTest > appliesTax() FAILED")).toBe(
+      "CalculatorTest > appliesTax() FAILED",
+    );
+  });
+});
+
+describe("normalize", () => {
+  it("scrubs build durations", () => {
+    expect(normalize("BUILD FAILED in 11s")).toBe("BUILD FAILED in <duration>\n");
+    expect(normalize("BUILD SUCCESSFUL in 1m 3s")).toBe(
+      "BUILD SUCCESSFUL in <duration>\n",
+    );
+    expect(normalize("BUILD SUCCESSFUL in 450ms")).toBe(
+      "BUILD SUCCESSFUL in <duration>\n",
+    );
+  });
+
+  it("scrubs actionable-task counts, which vary with cache state", () => {
+    expect(normalize("3 actionable tasks: 2 executed, 1 up-to-date")).toBe(
+      "<actionable-tasks>\n",
+    );
+  });
+
+  it("collapses absolute paths, preferring the longest matching root", () => {
+    const out = normalize("see file:///repo/test/fixtures/f/build/reports/index.html", {
+      repoRoot: "/repo",
+      fixtureDir: "/repo/test/fixtures/f",
+    });
+    expect(out).toBe("see file://<fixture>/build/reports/index.html\n");
+  });
+
+  it("drops the welcome banner and its variable-length highlights block", () => {
+    const input = [
+      "Welcome to Gradle 8.14.3!",
+      "",
+      "Here are the highlights of this release:",
+      " - Java 24 support",
+      " - Something else",
+      "",
+      "For more details see https://docs.gradle.org/8.14.3/release-notes.html",
+      "> Task :test",
+    ].join("\n");
+    expect(normalize(input)).toBe("> Task :test\n");
+  });
+
+  it("drops distribution download progress", () => {
+    const input = [
+      "Downloading https://services.gradle.org/distributions/gradle-8.14.3-bin.zip",
+      ".............10%.............20%.............100%",
+      "> Task :test",
+    ].join("\n");
+    expect(normalize(input)).toBe("> Task :test\n");
+  });
+
+  it("drops daemon lifecycle chatter", () => {
+    const input = [
+      "To honour the JVM settings for this build a single-use Daemon process will be forked.",
+      "Daemon will be stopped at the end of the build",
+      "> Task :test",
+    ].join("\n");
+    expect(normalize(input)).toBe("> Task :test\n");
+  });
+
+  it("sorts test-event blocks, keeping each trace with its header", () => {
+    const input = [
+      "ZebraTest > runsLast() PASSED",
+      "",
+      "AlphaTest > failsFirst() FAILED",
+      "    org.opentest4j.AssertionFailedError: boom",
+      "        at app//AlphaTest.failsFirst(AlphaTest.java:9)",
+      "",
+      "MiddleTest > inTheMiddle() PASSED",
+    ].join("\n");
+
+    expect(normalize(input)).toBe(
+      [
+        "AlphaTest > failsFirst() FAILED",
+        "    org.opentest4j.AssertionFailedError: boom",
+        "        at app//AlphaTest.failsFirst(AlphaTest.java:9)",
+        "",
+        "MiddleTest > inTheMiddle() PASSED",
+        "",
+        "ZebraTest > runsLast() PASSED",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("dedupes a task that appears both bare and with a status", () => {
+    // Observed on CI but not locally: Gradle emits `> Task :test` when the task
+    // starts and `> Task :test FAILED` at completion, and where the second lands
+    // varies. The status must win regardless of position.
+    const input = [
+      "> Task :test",
+      "SomeTest > works() PASSED",
+      "1 test completed, 1 failed",
+      "> Task :test FAILED",
+    ].join("\n");
+
+    expect(normalize(input)).toBe(
+      ["> Task :test FAILED", "SomeTest > works() PASSED", "", "1 test completed, 1 failed", ""].join(
+        "\n",
+      ),
+    );
+  });
+
+  it("sorts task lines and collapses them to the first task position", () => {
+    const input = ["> Task :testClasses", "> Task :clean UP-TO-DATE", "> Task :compileJava NO-SOURCE"].join(
+      "\n",
+    );
+    expect(normalize(input)).toBe(
+      ["> Task :clean UP-TO-DATE", "> Task :compileJava NO-SOURCE", "> Task :testClasses", ""].join("\n"),
+    );
+  });
+
+  it("drops cold-wrapper distribution chatter", () => {
+    const input = ["Fetching distribution.", "Unzipping /home/x/.gradle/wrapper/dists/g.zip", "> Task :test"].join(
+      "\n",
+    );
+    expect(normalize(input)).toBe("> Task :test\n");
+  });
+
+  it("scrubs line numbers in JDK frames but not project or pinned-dependency frames", () => {
+    // JDK patch releases shift these as fixes are backported, and dev and CI do not
+    // run the same patch. org.junit / org.assertj are pinned by the fixture, so
+    // their line numbers are stable and worth diffing.
+    const input = [
+      "    java.lang.NumberFormatException: For input string: \"not-a-number\"",
+      "        at java.base/java.lang.NumberFormatException.forInputString(NumberFormatException.java:67)",
+      "        at java.base/java.lang.Integer.parseInt(Integer.java:668)",
+      "        at app//org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:1073)",
+      "        at app//com.example.CalculatorTest.appliesTax(CalculatorTest.java:20)",
+      "        at com.example.SharedCauseTest$Ledger.balanceFor(SharedCauseTest.java:32)",
+    ].join("\n");
+
+    // normalize() trims the document, so the first line loses its indent here.
+    expect(normalize(input)).toBe(
+      [
+        "java.lang.NumberFormatException: For input string: \"not-a-number\"",
+        "        at java.base/java.lang.NumberFormatException.forInputString(NumberFormatException.java:<line>)",
+        "        at java.base/java.lang.Integer.parseInt(Integer.java:<line>)",
+        "        at app//org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:1073)",
+        "        at app//com.example.CalculatorTest.appliesTax(CalculatorTest.java:20)",
+        "        at com.example.SharedCauseTest$Ledger.balanceFor(SharedCauseTest.java:32)",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("is idempotent", () => {
+    const input = [
+      "> Task :test FAILED",
+      "",
+      "CalculatorTest > appliesTax() FAILED",
+      "    expected: <10.8> but was: <9.9>",
+      "",
+      "BUILD FAILED in 11s",
+      "3 actionable tasks: 2 executed, 1 up-to-date",
+    ].join("\n");
+    const once = normalize(input);
+    expect(normalize(once)).toBe(once);
+  });
+});
+
+describe("countTokens", () => {
+  it("estimates at chars/4", () => {
+    expect(countTokens("a".repeat(400))).toBe(100);
+    expect(countTokens("")).toBe(0);
+  });
+});

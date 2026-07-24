@@ -1,0 +1,30 @@
+{
+  "name": "junit-axi",
+  "version": "0.1.0",
+  "description": "An AXI (Agent eXperience Interface) for JUnit — run tests through Gradle and read results without the build-output noise.",
+  "type": "module",
+  "bin": {
+    "junit-axi": "bin/junit-axi.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "skills",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "pretest": "npm run build",
+    "test": "vitest run",
+    "skill:gen": "node scripts/gen-skill.mjs",
+    "skill:check": "node scripts/gen-skill.mjs --check"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

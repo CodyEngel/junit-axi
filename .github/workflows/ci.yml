@@ -1,0 +1,48 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # JUnit 6 requires Java 17 or newer (docs/DESIGN.md §5). The JUnit 4 and 5
+      # fixtures added in M4 run on this same JDK.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # The fixtures use their own committed wrappers, so no Gradle install is
+      # needed — but caching the downloaded distribution and the resolved JUnit
+      # artifacts keeps the snapshot job from re-downloading them every run.
+      - name: Cache Gradle distribution and dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('test/fixtures/*/gradle/wrapper/gradle-wrapper.properties', 'test/fixtures/*/build.gradle.kts') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - run: npm ci
+
+      - run: npm run build
+
+      # The fixtures fail tests on purpose, so Gradle exits nonzero. That exit code
+      # never reaches this step: the harness captures it and the snapshot comparison
+      # decides pass/fail (docs/DESIGN.md §4.1, applied to our own tooling).
+      - run: npx vitest run
+
+      - run: npm run skill:check
+
+      - run: npx -y axi-axi validate "node bin/junit-axi.js" --dir . --timeout 30000
